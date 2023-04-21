@@ -30,6 +30,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "hx711.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -134,6 +135,14 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
+  hx711_t loadcell = {0};
+  uint32_t rpm;
+  float weight;
+  hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
+  //hx711_coef_set(&loadcell, 354.5); // read after calibration
+  //hx711_tare(&loadcell, 10);
+  loadcell.coef = 1;
+  loadcell.offset = 0;
   HAL_TIM_Base_Start_IT(&htim16);
   HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);
   /* USER CODE END 2 */
@@ -146,8 +155,12 @@ int main(void)
 		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_SET);
 	  else
 		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);*/
-	  uint32_t rpm = measure_RPM();
+	  rpm = measure_RPM();
 	  if(rpm > 0) printf("RPM value: %lu\n", rpm);
+	  weight = hx711_weight(&loadcell, 1);
+	  printf("Weight value : %f\n", weight);
+	  //HAL_Delay(500);
+
 
     /* USER CODE END WHILE */
 

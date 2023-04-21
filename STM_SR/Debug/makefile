@@ -66,7 +66,7 @@ main-build: STM_SR.elf secondary-outputs
 
 # Tool invocations
 STM_SR.elf: $(OBJS) $(USER_OBJS) C:\Users\olafb\OneDrive\Pulpit\projekt\ hamownia\Dynamometer-data-logger\STM_SR\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "STM_SR.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\olafb\OneDrive\Pulpit\projekt hamownia\Dynamometer-data-logger\STM_SR\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM_SR.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "STM_SR.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\olafb\OneDrive\Pulpit\projekt hamownia\Dynamometer-data-logger\STM_SR\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM_SR.map" -Wl,--gc-sections -static  -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
