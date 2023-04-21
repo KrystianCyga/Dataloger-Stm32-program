@@ -49,14 +49,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-volatile uint32_t pulse_count = 0;
-volatile uint32_t rpm = 0;
+volatile uint32_t lastCapture = 0;
+volatile uint32_t capturedBuffer[2] = {0};
+volatile uint8_t bufferIndex = 0;
+volatile uint32_t compensation = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+uint32_t measure_RPM(); // if data from sensor is available return RPM value
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -75,7 +77,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == RPM_SENSOR_Pin)
   {
-    pulse_count++; // increase count each time we got an low on sensor pin
+	  uint32_t now = TIM16->CNT; // Get current timer count + compensation
+	  uint32_t tmp_compensation = compensation;
+	  compensation = 0; // zero compensation value
+	  uint32_t delta = now + tmp_compensation - lastCapture; // Calculate time difference
+	  lastCapture = now;
+	  capturedBuffer[bufferIndex] = delta; // Store time difference in buffer
+	  bufferIndex = (bufferIndex + 1) % 2; // Wrap buffer index
   }
 }
 
@@ -83,8 +91,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim == &htim16)
 	{
-		rpm = pulse_count * 60; // pulses per second to minute
-		pulse_count = 0;
+		compensation += 0xFFFF; // compensate for timer overflow
 	}
 }
 /* USER CODE END 0 */
@@ -139,10 +146,8 @@ int main(void)
 		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_SET);
 	  else
 		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);*/
-	  printf("RPM value: %lu\n", rpm);
-	  HAL_Delay(100);
-
-
+	  uint32_t rpm = measure_RPM();
+	  if(rpm > 0) printf("RPM value: %lu\n", rpm);
 
     /* USER CODE END WHILE */
 
@@ -213,7 +218,19 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+uint32_t measure_RPM(){
+	uint32_t delta1 = capturedBuffer[0];
+	uint32_t delta2 = capturedBuffer[1];
+	if (delta1 > 0 && delta2 > 0) {
+		uint32_t delta = delta1 + delta2;
+		float frequency = 1.0f / (delta / 2.0f / 10000.0f ); // Calculate frequency in Hz
+		uint32_t rpm = frequency * 60.0f; // Calculate RPM
+		capturedBuffer[0] = 0;
+		capturedBuffer[1] = 0;
+		return rpm;
+	}
+	else return 0;
+}
 /* USER CODE END 4 */
 
 /**
