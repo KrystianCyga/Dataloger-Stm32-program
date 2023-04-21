@@ -49,7 +49,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+volatile uint32_t pulse_count = 0;
+volatile uint32_t rpm = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,11 +61,31 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int _write(int file, char *ptr, int len){
-	for(int i = 0; i < len; i++){
+// for debugging purposes
+int _write(int file, char *ptr, int len)
+{
+	for(int i = 0; i < len; i++)
+	{
 		ITM_SendChar(*ptr++);
 	}
 	return len;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  if (GPIO_Pin == RPM_SENSOR_Pin)
+  {
+    pulse_count++; // increase count each time we got an low on sensor pin
+  }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim16)
+	{
+		rpm = pulse_count * 60; // pulses per second to minute
+		pulse_count = 0;
+	}
 }
 /* USER CODE END 0 */
 
@@ -104,20 +125,22 @@ int main(void)
   MX_FATFS_Init();
   MX_RTC_Init();
   MX_TIM6_Init();
+  MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_Base_Start_IT(&htim16);
+  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);
   while (1)
   {
-	  if(HAL_GPIO_ReadPin(RPM_SENSOR_GPIO_Port, RPM_SENSOR_Pin) == GPIO_PIN_RESET)
+	  /*if(HAL_GPIO_ReadPin(RPM_SENSOR_GPIO_Port, RPM_SENSOR_Pin) == GPIO_PIN_RESET)
 		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_SET);
 	  else
-		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);*/
+	  printf("RPM value: %lu\n", rpm);
+	  HAL_Delay(100);
 
 
 
