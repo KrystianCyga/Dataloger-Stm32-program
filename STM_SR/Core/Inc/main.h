@@ -79,10 +79,10 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define HS711_out_Pin GPIO_PIN_10
-#define HS711_out_GPIO_Port GPIOC
-#define HS711_SCK_Pin GPIO_PIN_11
-#define HS711_SCK_GPIO_Port GPIOC
+#define HX711_DAT_Pin GPIO_PIN_10
+#define HX711_DAT_GPIO_Port GPIOC
+#define HX711_CLK_Pin GPIO_PIN_11
+#define HX711_CLK_GPIO_Port GPIOC
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 #define LCD_I2C_SCL_Pin GPIO_PIN_6
