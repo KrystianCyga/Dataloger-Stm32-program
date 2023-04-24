@@ -40,7 +40,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FatFs/src/ff.h ../FATFS/Target/user_diskio.h \
  ../Core/Inc/i2c.h ../Core/Inc/main.h ../Core/Inc/rtc.h ../Core/Inc/spi.h \
  ../Core/Inc/tim.h ../Core/Inc/usart.h ../Core/Inc/gpio.h \
- ../Core/Inc/hx711.h
+ ../Core/Inc/hx711.h ../Core/Inc/ds18b20.h ../Core/Inc/onewire.h \
+ ../Core/Inc/gpio.h
 
 ../Core/Inc/main.h:
 
@@ -143,3 +144,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/gpio.h:
 
 ../Core/Inc/hx711.h:
+
+../Core/Inc/ds18b20.h:
+
+../Core/Inc/onewire.h:
+
+../Core/Inc/gpio.h:
