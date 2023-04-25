@@ -33,6 +33,8 @@
 #include "hx711.h"
 #include "ds18b20.h"
 #define BUFFER_LEN  1
+#include "liquidcrystal_i2c.h"
+#include "fatfs_sd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -132,7 +134,8 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  FATFS fs;
+  FIL fil;
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -165,6 +168,21 @@ int main(void)
 
   HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
 
+    HD44780_Init(2);
+    HD44780_Clear();
+    HD44780_SetCursor(0,0);
+    HD44780_PrintStr("HELLO");
+    HD44780_SetCursor(10,1);
+    HD44780_PrintStr("WORLD");
+    HAL_Delay(2000);
+
+      HAL_Delay(500);
+      f_mount(&fs, "", 0);
+      f_open(&fil, "write.txt", FA_OPEN_ALWAYS | FA_WRITE | FA_READ);
+      f_lseek(&fil, fil.fptr);
+      f_puts("Hello \n", &fil);
+      f_close(&fil);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -184,6 +202,8 @@ int main(void)
 	    	DS18B20_StartAll();
 	    	uint8_t ROM_tmp[8];
 	    	uint8_t i;
+
+
 	  for(i = 0; i < DS18B20_Quantity(); i++)
 	    	{
 	    		if(DS18B20_GetTemperature(i, &temperature))
@@ -195,6 +215,7 @@ int main(void)
 
 	    		}
 	    	}
+
 	  if(RX_BUFFER[0] == '1')
 	  	          {
 		  	  	  HAL_GPIO_WritePin(test_GPIO_Port, test_Pin, 1);
