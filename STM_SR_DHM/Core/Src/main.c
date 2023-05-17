@@ -35,6 +35,7 @@
 #define BUFFER_LEN  1
 #include "liquidcrystal_i2c.h"
 #include "fatfs_sd.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
