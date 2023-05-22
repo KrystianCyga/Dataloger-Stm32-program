@@ -32,8 +32,7 @@
 #include "stdio.h"
 #include "hx711.h"
 #include "ds18b20.h"
-#define BUFFER_LEN  1
-#include "liquidcrystal_i2c.h"
+#include "i2c-lcd.h"
 #include "fatfs_sd.h"
 #include "string.h"
 /* USER CODE END Includes */
@@ -45,6 +44,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BUFFER_LEN  1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,7 +60,11 @@ volatile uint32_t capturedBuffer[2] = {0};
 volatile uint8_t bufferIndex = 0;
 volatile uint32_t compensation = 0;
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart3;
+UART_HandleTypeDef huart2;
 uint8_t RX_BUFFER[BUFFER_LEN] = {0};
+enum LCD_state {RPM_TEM, WGHT_RPM, TEM_WGHT};
+enum LCD_state current_lcd_state = RPM_TEM;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,8 +75,6 @@ uint32_t measure_RPM(); // if data from sensor is available return RPM value
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-UART_HandleTypeDef huart3;
-UART_HandleTypeDef huart2;
 int _write(int file, char *ptr, int len)
 {
 	for(int i = 0; i < len; i++)
@@ -93,6 +95,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	  lastCapture = now;
 	  capturedBuffer[bufferIndex] = delta; // Store time difference in buffer
 	  bufferIndex = (bufferIndex + 1) % 2; // Wrap buffer index
+  }
+  if(GPIO_Pin == B1_Pin){
+	  current_lcd_state++;
+	  if(current_lcd_state > TEM_WGHT)
+		  current_lcd_state = RPM_TEM;
   }
 }
 
@@ -151,38 +158,35 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   hx711_t loadcell = {0};
-  uint32_t rpm;
-  float weight;
   hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
   //hx711_coef_set(&loadcell, 354.5); // read after calibration
   //hx711_tare(&loadcell, 10);
   loadcell.coef = 1;
   loadcell.offset = 0;
   HAL_TIM_Base_Start_IT(&htim16);
-  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);
-
   float temperature;
-  DS18B20_Init(DS18B20_Resolution_12bits);
   char uart_buf[32];
-
+  DS18B20_Init(DS18B20_Resolution_12bits);
   HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
-
-    HD44780_Init(2);
-    HD44780_Clear();
-    HD44780_SetCursor(0,0);
-    HD44780_PrintStr("HELLO");
-    HD44780_SetCursor(10,1);
-    HD44780_PrintStr("WORLD");
-    HAL_Delay(2000);
-
-      HAL_Delay(500);
-      f_mount(&fs, "", 0);
-      f_open(&fil, "write.txt", FA_OPEN_ALWAYS | FA_WRITE | FA_READ);
-      f_lseek(&fil, fil.fptr);
-      f_puts("Hello \n", &fil);
-      f_close(&fil);
+  lcd_init();
+  // krystian
+  /*HD44780_Init(2);
+	HD44780_Clear();
+	HD44780_SetCursor(0,0);
+	HD44780_PrintStr("HELLO");
+	HD44780_SetCursor(10,1);
+	HD44780_PrintStr("WORLD");
+	HAL_Delay(2000);*/
+  	  /* krystian
+	HAL_Delay(500);
+	f_mount(&fs, "", 0);
+	f_open(&fil, "write.txt", FA_OPEN_ALWAYS | FA_WRITE | FA_READ);
+	f_lseek(&fil, fil.fptr);
+	f_puts("Hello \n", &fil);
+	f_close(&fil);*/
 
   /* USER CODE END 2 */
 
@@ -190,22 +194,49 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /*if(HAL_GPIO_ReadPin(RPM_SENSOR_GPIO_Port, RPM_SENSOR_Pin) == GPIO_PIN_RESET)
-		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_SET);
-	  else
-		  HAL_GPIO_WritePin(RED_DIODE_GPIO_Port, RED_DIODE_Pin, GPIO_PIN_RESET);*/
-	  rpm = measure_RPM();
-	  if(rpm > 0) printf("RPM value: %lu\n", rpm);
-	  weight = hx711_weight(&loadcell, 1);
-	  printf("Weight value : %f\n", weight);
+	  char rpm_msq[16], temp_msg[16], weight_msg[16];
 
-	  	  	DS18B20_ReadAll();
-	    	DS18B20_StartAll();
-	    	uint8_t ROM_tmp[8];
-	    	uint8_t i;
+	  int rpm = measure_RPM();
+	  if(current_lcd_state == RPM_TEM || current_lcd_state == WGHT_RPM)
+		  sprintf(rpm_msq, "RPM: %d", rpm);
 
+	  float weight = hx711_weight(&loadcell, 1);
+	  if(current_lcd_state == WGHT_RPM || current_lcd_state == TEM_WGHT)
+		  sprintf(weight_msg, "Weight: %f", weight);
 
-	  for(i = 0; i < DS18B20_Quantity(); i++)
+	  // tutaj odczyt temperatury, na razei symulacja
+	  float temp = 20.5;
+	  if(current_lcd_state == RPM_TEM || current_lcd_state == TEM_WGHT)
+		  sprintf(temp_msg, "Temp: %f", temp);
+
+	  lcd_clear();
+	  lcd_put_cur(0, 0);
+	  switch(current_lcd_state){
+	  case RPM_TEM:
+		  lcd_send_string(rpm_msq);
+		  lcd_put_cur(1, 0);
+		  lcd_send_string(temp_msg);
+		  break;
+	  case WGHT_RPM:
+		  lcd_send_string(weight_msg);
+		  lcd_put_cur(1, 0);
+		  lcd_send_string(rpm_msq);
+		  break;
+	  case TEM_WGHT:
+		  lcd_send_string(temp_msg);
+		  lcd_put_cur(1, 0);
+		  lcd_send_string(weight_msg);
+		  break;
+	  }
+	  HAL_Delay(500);
+	  //krystian
+		/*DS18B20_ReadAll();
+		DS18B20_StartAll();
+		uint8_t ROM_tmp[8];
+		uint8_t i;*/
+
+		// krystian
+	  /*for(i = 0; i < DS18B20_Quantity(); i++)
 	    	{
 	    		if(DS18B20_GetTemperature(i, &temperature))
 	    		{
@@ -215,8 +246,8 @@ int main(void)
 	    			        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
 
 	    		}
-	    	}
-
+	    	}*/
+		/* krystian
 	  if(RX_BUFFER[0] == '1')
 	  	          {
 		  	  	  HAL_GPIO_WritePin(test_GPIO_Port, test_Pin, 1);
@@ -225,7 +256,7 @@ int main(void)
 	  	          {
 
 	  	        	HAL_GPIO_WritePin(test_GPIO_Port, test_Pin, 0);
-	  	          }
+	  	          }*/
 	  //HAL_Delay(500);
 
 
@@ -279,11 +310,12 @@ void SystemClock_Config(void)
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USART1
                               |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_USART3
-                              |RCC_PERIPHCLK_I2C1;
+                              |RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_I2C2;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
+  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_PCLK1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {

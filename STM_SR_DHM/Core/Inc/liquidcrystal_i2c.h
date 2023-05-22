@@ -55,7 +55,7 @@
 #define RS 0x01
 
 /* Device I2C Address */
-#define DEVICE_ADDR     (0x3F << 1)
+#define DEVICE_ADDR     0x4E //(0x3F << 1)
 
 void HD44780_Init(uint8_t rows);
 void HD44780_Clear();

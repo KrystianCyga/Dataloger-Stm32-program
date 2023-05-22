@@ -159,7 +159,6 @@ DRESULT USER_ioctl (
 )
 {
   /* USER CODE BEGIN IOCTL */
-    DRESULT res = RES_ERROR;
     return SD_disk_ioctl(pdrv, cmd, buff);
   /* USER CODE END IOCTL */
 }
