@@ -65,6 +65,21 @@ UART_HandleTypeDef huart2;
 uint8_t RX_BUFFER[BUFFER_LEN] = {0};
 enum LCD_state {RPM_TEM, WGHT_RPM, TEM_WGHT};
 enum LCD_state current_lcd_state = RPM_TEM;
+//tests
+FATFS fs;  // file system
+FIL fil; // File
+FILINFO fno;
+FRESULT fresult;  // result
+UINT br, bw;  // File read/write count
+
+/**** capacity related *****/
+FATFS *pfs;
+DWORD fre_clust;
+uint32_t total, free_space;
+
+#define BUFFER_SIZE 128
+char buffer[BUFFER_SIZE];  // to store strings..
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,6 +90,18 @@ uint32_t measure_RPM(); // if data from sensor is available return RPM value
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int bufsize (char *buf)
+{
+	int i=0;
+	while (*buf++ != '\0') i++;
+	return i;
+}
+
+void clear_buffer (void)
+{
+	for (int i=0; i<BUFFER_SIZE; i++) buffer[i] = '\0';
+}
+
 int _write(int file, char *ptr, int len)
 {
 	for(int i = 0; i < len; i++)
@@ -142,14 +169,12 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  FATFS fs;
-  FIL fil;
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_I2C1_Init();
   MX_SPI1_Init();
   MX_USART3_UART_Init();
   MX_FATFS_Init();
@@ -160,6 +185,61 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
+
+  //TEST STARTs
+  	HAL_Delay (500);
+	fresult = f_mount(&fs, "/", 1);
+	if (fresult != FR_OK){
+		printf("ERROR!!! in mounting SD CARD...\n\n");
+		printf("%d\n", fresult);
+	}
+	else printf("SD CARD mounted successfully...\n\n");
+
+
+	/*************** Card capacity details ********************/
+
+	/* Check free space */
+	f_getfree("", &fre_clust, &pfs);
+
+	total = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
+	sprintf (buffer, "SD CARD Total Size: \t%lu\n",total);
+	printf(buffer);
+	clear_buffer();
+	free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
+	sprintf (buffer, "SD CARD Free Space: \t%lu\n\n",free_space);
+	printf(buffer);
+	clear_buffer();
+
+
+	/************* The following operation is using PUTS and GETS *********************/
+
+	/* Open file to write/ create a file if it doesn't exist */
+	fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+
+	/* Writing text */
+	f_puts("This data is from the FILE1.txt. And it was written using ...f_puts... ", &fil);
+
+	/* Close file */
+	fresult = f_close(&fil);
+
+	if (fresult == FR_OK)printf ("File1.txt created and the data is written \n");
+
+	/* Open file to read */
+	fresult = f_open(&fil, "file1.txt", FA_READ);
+
+	/* Read string from the file */
+	f_gets(buffer, f_size(&fil), &fil);
+
+	printf("File1.txt is opened and it contains the data as shown below\n");
+	printf(buffer);
+	printf("\n\n");
+
+	/* Close file */
+	f_close(&fil);
+
+	clear_buffer();
+  //TEST ENDS
+
   hx711_t loadcell = {0};
   hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
   //hx711_coef_set(&loadcell, 354.5); // read after calibration
@@ -172,21 +252,6 @@ int main(void)
   DS18B20_Init(DS18B20_Resolution_12bits);
   HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
   lcd_init();
-  // krystian
-  /*HD44780_Init(2);
-	HD44780_Clear();
-	HD44780_SetCursor(0,0);
-	HD44780_PrintStr("HELLO");
-	HD44780_SetCursor(10,1);
-	HD44780_PrintStr("WORLD");
-	HAL_Delay(2000);*/
-  	  /* krystian
-	HAL_Delay(500);
-	f_mount(&fs, "", 0);
-	f_open(&fil, "write.txt", FA_OPEN_ALWAYS | FA_WRITE | FA_READ);
-	f_lseek(&fil, fil.fptr);
-	f_puts("Hello \n", &fil);
-	f_close(&fil);*/
 
   /* USER CODE END 2 */
 
@@ -310,11 +375,10 @@ void SystemClock_Config(void)
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USART1
                               |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_USART3
-                              |RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_I2C2;
+                              |RCC_PERIPHCLK_I2C2;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
-  PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
   PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_PCLK1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
