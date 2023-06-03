@@ -250,8 +250,14 @@ int main(void)
   float temperature;
   char uart_buf[32];
   DS18B20_Init(DS18B20_Resolution_12bits);
-  HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
   lcd_init();
+
+
+  //Bluetooth
+  HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
+  char data[20]; // Array to store the formatted string
+  uint8_t txData[20]; // Array to hold the bytes to be transmitted
+
 
   /* USER CODE END 2 */
 
@@ -313,16 +319,14 @@ int main(void)
 	    		}
 	    	}*/
 		/* krystian
-	  if(RX_BUFFER[0] == '1')
-	  	          {
-		  	  	  HAL_GPIO_WritePin(test_GPIO_Port, test_Pin, 1);
-	  	          }
-	  	          else if(RX_BUFFER[0] == '0')
-	  	          {
 
-	  	        	HAL_GPIO_WritePin(test_GPIO_Port, test_Pin, 0);
-	  	          }*/
-	  //HAL_Delay(500);
+
+	 // Wysyłanie do bluetooth
+	  *
+	  */
+		sprintf(data, "%d,%d,%d,%d;", 5, 10, 69, 420);
+		memcpy(txData, data, strlen(data));
+		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
 
 
     /* USER CODE END WHILE */
