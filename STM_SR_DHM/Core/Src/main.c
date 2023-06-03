@@ -247,10 +247,17 @@ int main(void)
   loadcell.coef = 1;
   loadcell.offset = 0;
   HAL_TIM_Base_Start_IT(&htim16);
-  float temperature;
-  char uart_buf[32];
-  DS18B20_Init(DS18B20_Resolution_12bits);
+
   lcd_init();
+
+  //Temperatura
+    float temperature;
+    char uart_buf[32];
+    DS18B20_Init(DS18B20_Resolution_12bits);
+    DS18B20_ReadAll();
+    DS18B20_StartAll();
+    uint8_t ROM_tmp[8];
+    uint8_t i;
 
 
   //Bluetooth
@@ -275,10 +282,16 @@ int main(void)
 	  if(current_lcd_state == WGHT_RPM || current_lcd_state == TEM_WGHT)
 		  sprintf(weight_msg, "Weight: %f", weight);
 
-	  // tutaj odczyt temperatury, na razei symulacja
-	  float temp = 20.5;
+	  for(i = 0; i < DS18B20_Quantity(); i++)
+	    	{
+	    		if(DS18B20_GetTemperature(i, &temperature))
+	    		{
+	    			DS18B20_GetROM(i, ROM_tmp);
+
+	    		}
+	    	}
 	  if(current_lcd_state == RPM_TEM || current_lcd_state == TEM_WGHT)
-		  sprintf(temp_msg, "Temp: %f", temp);
+		  sprintf(temp_msg, "Temp: %f", temperature);
 
 	  lcd_clear();
 	  lcd_put_cur(0, 0);
@@ -300,30 +313,9 @@ int main(void)
 		  break;
 	  }
 	  HAL_Delay(500);
-	  //krystian
-		/*DS18B20_ReadAll();
-		DS18B20_StartAll();
-		uint8_t ROM_tmp[8];
-		uint8_t i;*/
-
-		// krystian
-	  /*for(i = 0; i < DS18B20_Quantity(); i++)
-	    	{
-	    		if(DS18B20_GetTemperature(i, &temperature))
-	    		{
-	    			DS18B20_GetROM(i, ROM_tmp);
-	    					sprintf(uart_buf, "Temperature: %.2f\r\n", temperature);
-	    			        HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 100);
-	    			        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
-
-	    		}
-	    	}*/
-		/* krystian
 
 
 	 // Wysyłanie do bluetooth
-	  *
-	  */
 		sprintf(data, "%d,%d,%d,%d;", 5, 10, 69, 420);
 		memcpy(txData, data, strlen(data));
 		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
