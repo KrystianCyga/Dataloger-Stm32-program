@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define HC_05_RX_GPIO_Port GPIOC
 #define test_Pin GPIO_PIN_0
 #define test_GPIO_Port GPIOB
+#define SPI2_CS_Pin GPIO_PIN_12
+#define SPI2_CS_GPIO_Port GPIOB
 #define RPM_SENSOR_Pin GPIO_PIN_8
 #define RPM_SENSOR_GPIO_Port GPIOA
 #define RPM_SENSOR_EXTI_IRQn EXTI9_5_IRQn

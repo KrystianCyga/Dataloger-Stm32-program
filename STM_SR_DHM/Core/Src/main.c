@@ -86,6 +86,7 @@ char buffer[BUFFER_SIZE];  // to store strings..
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 uint32_t measure_RPM(); // if data from sensor is available return RPM value
+float measure_force(hx711_t *hx711);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -184,7 +185,11 @@ int main(void)
   MX_TIM1_Init();
   MX_USART1_UART_Init();
   MX_I2C2_Init();
+  MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
+
+  // LCD init
+  lcd_init();
 
   //TEST STARTs
   	HAL_Delay (500);
@@ -240,18 +245,55 @@ int main(void)
 	clear_buffer();
   //TEST ENDS
 
+  // loadcell init and calibration procedure
   hx711_t loadcell = {0};
   hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
-  //hx711_coef_set(&loadcell, 354.5); // read after calibration
-  //hx711_tare(&loadcell, 10);
-  loadcell.coef = 1;
-  loadcell.offset = 0;
+  int8_t stop = 1;
+  int32_t noload_raw, load_raw;
+  float scale = 1000; // wartosc wzorca w gramach
+
+  lcd_clear();
+  lcd_put_cur(0, 0);
+  lcd_send_string("Tarowanie wagi");
+  lcd_put_cur(1, 0);
+  lcd_send_string("Przytrzymaj B1");
+  while(stop){
+	  GPIO_PinState stop_check;
+	  for(int i = 0; i < 10; i++){
+		  stop_check = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+		  if(stop_check == GPIO_PIN_RESET) stop = 0;
+		  else stop = 1;
+		  HAL_Delay(2);
+	  }
+  }
+  lcd_clear();
+  while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET);
+  noload_raw = hx711_value_ave(&loadcell, 10);
+  stop = 1;
+  lcd_put_cur(0, 0);
+  lcd_send_string("Ustaw wzorzec");
+  lcd_put_cur(1, 0);
+  lcd_send_string("Przytrzymaj B1");
+  while(stop){
+  	  GPIO_PinState stop_check;
+  	  for(int i = 0; i < 10; i++){
+  		  stop_check = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+  		  if(stop_check == GPIO_PIN_RESET) stop = 0;
+  		  else stop = 1;
+  		  HAL_Delay(2);
+  	  }
+  }
+  load_raw = hx711_value_ave(&loadcell, 10);
+
+  // waga bedzie zwracana w gramach
+  hx711_calibration(&loadcell, noload_raw, load_raw, scale);
+
+  // timer i temperatura oraz uart
   HAL_TIM_Base_Start_IT(&htim16);
   float temperature;
   char uart_buf[32];
   DS18B20_Init(DS18B20_Resolution_12bits);
   HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
-  lcd_init();
 
   /* USER CODE END 2 */
 
@@ -259,20 +301,23 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char rpm_msq[16], temp_msg[16], weight_msg[16];
+	  char rpm_msq[16], temp_msg[16], force_msg[16];
 
 	  int rpm = measure_RPM();
 	  if(current_lcd_state == RPM_TEM || current_lcd_state == WGHT_RPM)
 		  sprintf(rpm_msq, "RPM: %d", rpm);
 
-	  float weight = hx711_weight(&loadcell, 1);
+	  float force_N = measure_force(&loadcell);
 	  if(current_lcd_state == WGHT_RPM || current_lcd_state == TEM_WGHT)
-		  sprintf(weight_msg, "Weight: %f", weight);
+		  sprintf(force_msg, "Force (N): %f", force_N);
 
 	  // tutaj odczyt temperatury, na razei symulacja
 	  float temp = 20.5;
 	  if(current_lcd_state == RPM_TEM || current_lcd_state == TEM_WGHT)
 		  sprintf(temp_msg, "Temp: %f", temp);
+
+	  // w tym miesjcu np wyslylamy dane do SD, przez UART i BT
+	  // zawrzec to w 3 funkcjach
 
 	  lcd_clear();
 	  lcd_put_cur(0, 0);
@@ -283,14 +328,14 @@ int main(void)
 		  lcd_send_string(temp_msg);
 		  break;
 	  case WGHT_RPM:
-		  lcd_send_string(weight_msg);
+		  lcd_send_string(force_msg);
 		  lcd_put_cur(1, 0);
 		  lcd_send_string(rpm_msq);
 		  break;
 	  case TEM_WGHT:
 		  lcd_send_string(temp_msg);
 		  lcd_put_cur(1, 0);
-		  lcd_send_string(weight_msg);
+		  lcd_send_string(force_msg);
 		  break;
 	  }
 	  HAL_Delay(500);
@@ -406,6 +451,14 @@ uint32_t measure_RPM(){
 		return rpm;
 	}
 	else return 0;
+}
+
+// return force applied to loadcell in Newtons
+float measure_force(hx711_t *hx711){
+	float weight_g = hx711_weight(hx711, 10);
+	float force_N = weight_g * 0.0098f;
+	if(force_N < 0) force_N = +0.0f;
+	return force_N;
 }
 /* USER CODE END 4 */
 
