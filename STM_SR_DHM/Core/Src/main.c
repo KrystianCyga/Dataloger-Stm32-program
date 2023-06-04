@@ -266,6 +266,12 @@ int main(void)
   uint8_t txData[20]; // Array to hold the bytes to be transmitted
 
 
+  //RTC
+  	  	char time[30];
+    	int meslen=0;
+    	RTC_TimeTypeDef RtcTime;
+    	RTC_TimeTypeDef RtcDate;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -314,9 +320,13 @@ int main(void)
 	  }
 	  HAL_Delay(500);
 
+	  //pobieranie czasu
+	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+	  meslen=sprintf((char*)time, "Time: %02d:%02d:%02d\n\r", RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
 
 	 // Wysyłanie do bluetooth
-		sprintf(data, "%d,%d,%d,%d;", 5, 10, 69, 420);
+		sprintf(data, "%d,%d,%d,%d;", rpm_msq, temp_msg, weight_msg, 420);
 		memcpy(txData, data, strlen(data));
 		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
 
