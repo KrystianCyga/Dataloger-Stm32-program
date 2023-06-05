@@ -284,11 +284,11 @@ int main(void)
 
 	  int rpm = measure_RPM();
 	  if(current_lcd_state == RPM_TEM || current_lcd_state == WGHT_RPM)
-		  sprintf(rpm_msq, "RPM: %d", rpm);
+		  sprintf(rpm_msq, "RPM:%d", rpm);
 
 	  float weight = hx711_weight(&loadcell, 1);
 	  if(current_lcd_state == WGHT_RPM || current_lcd_state == TEM_WGHT)
-		  sprintf(weight_msg, "Weight: %f", weight);
+		  sprintf(weight_msg, "Weight:%f", weight);
 
 	  for(i = 0; i < DS18B20_Quantity(); i++)
 	    	{
@@ -301,11 +301,11 @@ int main(void)
 	    		}
 	    	}
 	  if(current_lcd_state == RPM_TEM || current_lcd_state == TEM_WGHT)
-		  sprintf(temp_msg, "Temp: %f", temperature);
+		  sprintf(temp_msg, "Temp:%.4g", temperature);
 
 	  lcd_clear();
 	  lcd_put_cur(0, 0);
-	  switch(current_lcd_state){
+	  switch(current_lcd_state){A
 	  case RPM_TEM:
 		  lcd_send_string(rpm_msq);
 		  lcd_put_cur(1, 0);
@@ -330,7 +330,7 @@ int main(void)
 	  meslen=sprintf((char*)time, "Time: %02d:%02d:%02d\n\r", RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
 
 	 // Wysyłanie do bluetooth
-		sprintf(data, "%d,%d,%d,%d;", rpm_msq, temp_msg, weight_msg, 420);
+		sprintf(data, "%.4g,%.2g,%d,%d:%d:%d;", temperature, weight, rpm, RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds);
 		memcpy(txData, data, strlen(data));
 		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
 
