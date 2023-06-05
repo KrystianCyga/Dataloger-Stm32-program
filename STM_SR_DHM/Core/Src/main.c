@@ -254,8 +254,7 @@ int main(void)
     float temperature;
     char uart_buf[32];
     DS18B20_Init(DS18B20_Resolution_12bits);
-    DS18B20_ReadAll();
-    DS18B20_StartAll();
+
     uint8_t ROM_tmp[8];
     uint8_t i;
 
@@ -278,6 +277,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  DS18B20_ReadAll();
+	  DS18B20_StartAll();
+
 	  char rpm_msq[16], temp_msg[16], weight_msg[16];
 
 	  int rpm = measure_RPM();
@@ -293,6 +295,8 @@ int main(void)
 	    		if(DS18B20_GetTemperature(i, &temperature))
 	    		{
 	    			DS18B20_GetROM(i, ROM_tmp);
+	    			sprintf(uart_buf, "Temperature: %.2f\r\n", temperature);
+	    			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 100);
 
 	    		}
 	    	}
