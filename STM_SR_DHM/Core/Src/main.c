@@ -399,7 +399,7 @@ int main(void)
 	  meslen=sprintf((char*)time, "Time: %02d:%02d:%02d\n\r", RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
 
 	 // Wysyłanie do bluetooth
-		sprintf(data, "%.4g,%.2g,%d,%d:%d:%d;", temperature, weight, rpm, RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds);
+		sprintf(data, "%.4g,%.2g,%d,%d:%d:%d;", temperature, weight/100, rpm, RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds);
 		memcpy(txData, data, strlen(data));
 		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
 
@@ -410,7 +410,7 @@ int main(void)
 		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 100);
 
 	// zapisywanie danych na karte SD
-			fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+			fresult = f_open(&fil, "DATALOG.TXT", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
 
 			/* Zapisywanie */
 			sprintf(data, "%d:%d:%d-%.4g,%.2g,%d",RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds, temperature, weight, rpm);
@@ -419,7 +419,7 @@ int main(void)
 			/* zamykanie pliku */
 			fresult = f_close(&fil);
 
-			if (fresult == FR_OK)printf ("File1.txt created and the data is written \n");
+			if (fresult == FR_OK)printf ("DATALOG.TXT created and the data is written \n");
 
 
 			clear_buffer();
