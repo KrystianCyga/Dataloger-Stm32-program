@@ -144,6 +144,64 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(&huart1, RX_BUFFER, BUFFER_LEN);
     }
 }
+
+uint8_t calculateCRC8(float value1, float value2, int value3, int value4) {
+  uint8_t crc = 0;
+
+  // Obliczenie sumy kontrolnej dla value1
+  uint32_t valueAsUint1;
+  memcpy(&valueAsUint1, &value1, sizeof(value1));
+  uint8_t* bytes1 = (uint8_t*)&valueAsUint1;
+  for (uint8_t i = 0; i < sizeof(float); i++) {
+    crc ^= bytes1[i];
+    for (uint8_t j = 0; j < 8; j++) {
+        if (crc & 0x80) {
+            crc = (crc << 1) ^ 0x07;
+        } else {
+            crc <<= 1;
+        }
+    }
+  }
+
+  // Obliczenie sumy kontrolnej dla value2
+  uint32_t valueAsUint2;
+  memcpy(&valueAsUint2, &value2, sizeof(value2));
+  uint8_t* bytes2 = (uint8_t*)&valueAsUint2;
+  for (uint8_t i = 0; i < sizeof(float); i++) {
+    crc ^= bytes2[i];
+    for (uint8_t j = 0; j < 8; j++) {
+        if (crc & 0x80) {
+            crc = (crc << 1) ^ 0x07;
+        } else {
+            crc <<= 1;
+        }
+    }
+  }
+
+  // Obliczenie sumy kontrolnej dla value3
+  uint8_t value3AsUint8 = (uint8_t)value3;
+  crc ^= value3AsUint8;
+  for (uint8_t i = 0; i < 8; i++) {
+    if (crc & 0x80) {
+        crc = (crc << 1) ^ 0x07;
+    } else {
+        crc <<= 1;
+    }
+  }
+
+  // Obliczenie sumy kontrolnej dla value4
+  uint8_t value4AsUint8 = (uint8_t)value4;
+  crc ^= value4AsUint8;
+  for (uint8_t i = 0; i < 8; i++) {
+    if (crc & 0x80) {
+        crc = (crc << 1) ^ 0x07;
+    } else {
+        crc <<= 1;
+    }
+  }
+
+  return crc;
+}
 /* USER CODE END 0 */
 
 /**
@@ -185,7 +243,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-
+  lcd_init();
   //TEST STARTs
   	HAL_Delay (500);
 	fresult = f_mount(&fs, "/", 1);
@@ -211,44 +269,56 @@ int main(void)
 	clear_buffer();
 
 
-	/************* The following operation is using PUTS and GETS *********************/
-
-	/* Open file to write/ create a file if it doesn't exist */
-	fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-
-	/* Writing text */
-	f_puts("This data is from the FILE1.txt. And it was written using ...f_puts... ", &fil);
-
-	/* Close file */
-	fresult = f_close(&fil);
-
-	if (fresult == FR_OK)printf ("File1.txt created and the data is written \n");
-
-	/* Open file to read */
-	fresult = f_open(&fil, "file1.txt", FA_READ);
-
-	/* Read string from the file */
-	f_gets(buffer, f_size(&fil), &fil);
-
-	printf("File1.txt is opened and it contains the data as shown below\n");
-	printf(buffer);
-	printf("\n\n");
-
-	/* Close file */
-	f_close(&fil);
-
-	clear_buffer();
   //TEST ENDS
 
-  hx711_t loadcell = {0};
-  hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
-  //hx711_coef_set(&loadcell, 354.5); // read after calibration
-  //hx711_tare(&loadcell, 10);
-  loadcell.coef = 1;
-  loadcell.offset = 0;
+	// loadcell init and calibration procedure
+	  hx711_t loadcell = {0};
+	  hx711_init(&loadcell, HX711_CLK_GPIO_Port, HX711_CLK_Pin, HX711_DAT_GPIO_Port, HX711_DAT_Pin);
+	  int8_t stop = 1;
+	  int32_t noload_raw, load_raw;
+	  float scale = 1000; // wartosc wzorca w gramach
+
+	  lcd_clear();
+	  lcd_put_cur(0, 0);
+	  lcd_send_string("Tarowanie wagi");
+	  lcd_put_cur(1, 0);
+	  lcd_send_string("Przytrzymaj B1");
+	  while(stop){
+		  GPIO_PinState stop_check;
+		  for(int i = 0; i < 10; i++){
+			  stop_check = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+			  if(stop_check == GPIO_PIN_RESET) stop = 0;
+			  else stop = 1;
+			  HAL_Delay(2);
+		  }
+	  }
+	  lcd_clear();
+	  while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET);
+	  noload_raw = hx711_value_ave(&loadcell, 10);
+	  stop = 1;
+	  lcd_put_cur(0, 0);
+	  lcd_send_string("Ustaw wzorzec");
+	  lcd_put_cur(1, 0);
+	  lcd_send_string("Przytrzymaj B1");
+	  while(stop){
+	  	  GPIO_PinState stop_check;
+	  	  for(int i = 0; i < 10; i++){
+	  		  stop_check = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+	  		  if(stop_check == GPIO_PIN_RESET) stop = 0;
+	  		  else stop = 1;
+	  		  HAL_Delay(2);
+	  	  }
+	  }
+	  load_raw = hx711_value_ave(&loadcell, 10);
+
+	  // waga bedzie zwracana w gramach
+	  hx711_calibration(&loadcell, noload_raw, load_raw, scale);
+
+
+
   HAL_TIM_Base_Start_IT(&htim16);
 
-  lcd_init();
+  int calculatedCrc =0; //Suma Kontrolna
 
   //Temperatura
     float temperature;
@@ -295,8 +365,7 @@ int main(void)
 	    		if(DS18B20_GetTemperature(i, &temperature))
 	    		{
 	    			DS18B20_GetROM(i, ROM_tmp);
-	    			sprintf(uart_buf, "Temperature: %.2f\r\n", temperature);
-	    			HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
 
 	    		}
 	    	}
@@ -305,7 +374,7 @@ int main(void)
 
 	  lcd_clear();
 	  lcd_put_cur(0, 0);
-	  switch(current_lcd_state){A
+	  switch(current_lcd_state){
 	  case RPM_TEM:
 		  lcd_send_string(rpm_msq);
 		  lcd_put_cur(1, 0);
@@ -333,6 +402,27 @@ int main(void)
 		sprintf(data, "%.4g,%.2g,%d,%d:%d:%d;", temperature, weight, rpm, RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds);
 		memcpy(txData, data, strlen(data));
 		HAL_UART_Transmit(&huart1, txData, strlen(data), HAL_MAX_DELAY);
+
+		//Liczenie sumy kontrolnej
+		int calculatedCrc = calculateCRC8(temperature,temperature+2,rpm,weight);
+	 // Wysyłanie po Uart
+		sprintf(uart_buf, "@%.4g %.4g %d %.4g %d$\n", temperature,temperature+2,rpm,weight,calculatedCrc);
+		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+	// zapisywanie danych na karte SD
+			fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+
+			/* Zapisywanie */
+			sprintf(data, "%d:%d:%d-%.4g,%.2g,%d",RtcTime.Hours,RtcTime.Minutes,RtcTime.Seconds, temperature, weight, rpm);
+			f_puts(data, &fil);
+
+			/* zamykanie pliku */
+			fresult = f_close(&fil);
+
+			if (fresult == FR_OK)printf ("File1.txt created and the data is written \n");
+
+
+			clear_buffer();
 
 
     /* USER CODE END WHILE */
